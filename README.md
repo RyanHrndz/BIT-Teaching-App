@@ -147,6 +147,248 @@ BIT Teaching App/
 ---
 
 ## Getting Started
+How to Use
+Home Screen (HomeView)
+
+Displays a menu of all installed lessons (Breadboard, Elevator, Guitar, Speed Ball, Wave Board, Physics).
+
+A “Settings” button in the top-right corner leads to SettingsView.
+
+Settings (SettingsView)
+
+Toggle “Read Content Aloud”:
+
+If turned on and VoiceOver is off, each lesson’s text will be spoken via TTS.
+
+If turned off and VoiceOver is off, text is presented visually only.
+
+VoiceOver users will automatically hear all content, regardless of this toggle.
+
+NFC Scanning (NFCScannerView)
+
+Tap “Scan NFC Tag” from the Home screen (or hold the top of your device near an NFC tag).
+
+When the tag is recognized, the app automatically navigates to the correct lesson.
+
+Under the hood, NFCSessionDelegate reads the tag’s identifier, maps it via NFCDestination enum, and calls a navigation action.
+
+Lesson Page (LessonPageView)
+
+Displays the lesson title, a tactile description (via XyzView.swift), and step-by-step prompts (pulled from PromptDict).
+
+At the bottom, a button “Take the Quiz” launches QuizView.
+
+Quiz (QuizView)
+
+Presents 3–5 questions (stored in LessonManager) that reinforce key lesson concepts.
+
+Provides immediate feedback (“Correct” / “Try Again”).
+
+Upon completion, the user can return to Home or re-review the lesson.
+
+Adding New Lessons / Future Development
+As you expand the BIT Teaching App, follow these guidelines to integrate a brand-new lesson module:
+
+Create NFC Tag & Identifier
+
+Physically assign an NFC tag to the new object.
+
+Record its unique identifier (UID).
+
+In NFCDestination.swift, add a new enum case, e.g., case newLessonID = "04A224B3C41280".
+
+Add Prompt Content
+
+In PromptDict.swift, add a new key under the prompts dictionary:
+
+swift
+Copy
+Edit
+static let prompts: [NFCDestination: [String]] = [
+  // … existing lessons ...
+  .newLessonID: [
+    "Welcome to the New Lesson. In this lesson, you will learn about …",
+    "Step 1: Place your hands on the object. Notice the shape and texture…",
+    "Step 2: We will demonstrate how force and motion work by…",
+    // Add as many steps as needed
+  ]
+]
+Each string in the array represents a sequential “screen” or bullet-point that either VoiceOver will read or that appears in a visually formatted Text block.
+
+Define Tactile Shapes / Descriptions
+
+In ShapesDict.swift, add the description or metadata for the new lesson’s tactile diagram:
+
+swift
+Copy
+Edit
+static let shapes: [NFCDestination: String] = [
+  // … existing lessons ...
+  .newLessonID: "A triangular block with a ramp on one side, 4″ tall and 6″ long. Braille labels indicate force direction."
+]
+Create SwiftUI Views
+
+NewLessonView.swift: Build a SwiftUI view to present any static images, simple shapes, or diagrams. For accessibility, include accessibilityLabel or custom VoiceOver hints.
+
+NewLessonLessonView.swift: Create a companion that wraps LessonView with lesson-specific logic. Example:
+
+swift
+Copy
+Edit
+struct NewLessonLessonView: View {
+  @ObservedObject var manager = LessonManager(destination: .newLessonID)
+  
+  var body: some View {
+    LessonPageView(
+      title: "New Lesson Title",
+      contentView: AnyView(NewLessonView()),
+      prompts: manager.prompts,
+      onQuizTap: { manager.showQuiz = true }
+    )
+    .sheet(isPresented: $manager.showQuiz) {
+      QuizView(questions: manager.quizQuestions)
+    }
+  }
+}
+Make sure to add NewLessonLessonView to your app’s navigation (or let NFCScannerView index it via the new NFCDestination).
+
+Add Quiz Questions
+
+In LessonManager.swift, detect the new NFCDestination.newLessonID case and supply an array of Question structs for quizQuestions. E.g.:
+
+swift
+Copy
+Edit
+switch destination {
+  case .newLessonID:
+    return [
+      Question(text: "What is the primary concept illustrated by the new lesson?", choices: ["Option A", "Option B", "Option C"], correctIndex: 0),
+      // … more questions …
+    ]
+}
+Adjust the scoring or feedback logic if needed.
+
+Update HomeView or Navigation Logic
+
+If you display a manual list of lessons in HomeView, add a new NavigationLink for “New Lesson.” Otherwise, rely entirely on NFC navigation.
+
+Test With Physical NFC Tag
+
+Build and run on a device, then tap the NFC tag to ensure it navigates to NewLessonLessonView.
+
+Verify VoiceOver reads your prompts in order and that the tactile diagrams have appropriate labels.
+
+Document in README
+
+Add a brief note under Future Development about registering new NFC UIDs and lesson files.
+
+Accessibility & VoiceOver
+VoiceOver Integration
+
+All lesson text is stored in PromptDict. When VoiceOver is enabled, the system reads each Text view natively.
+
+If VoiceOver is off but “Read Content Aloud” is toggled on (in Settings), the AccessibilityManager triggers AVSpeechSynthesizer to read each prompt automatically.
+
+Tactile Diagrams
+
+In your XyzView.swift files (e.g., BreadboardView.swift), include both:
+
+A concise but descriptive accessibilityLabel on every Image or shape.
+
+Clear instructions in prompts that guide the student’s hands to feel particular features (e.g., “Place your fingertips on the breadboard’s red bus line…”).
+
+SettingsView
+
+Persist the user’s preference in UserDefaults.standard.set(isReadAloudEnabled, forKey: "ReadAloud").
+
+AccessibilityManager reads from that key to decide whether to fire AVSpeechSynthesizer if VoiceOver is off.
+
+Best Practices
+
+Always test with VoiceOver on a real device—listen for any unlabeled or confusing UI elements.
+
+Use accessibilityHidden(true) on purely decorative images.
+
+Add accessibilityHint when a UI element’s purpose might not be obvious (e.g., “Swipe left or right to access the next section”).
+
+Testing
+Unit Tests (BIT Teaching AppTests)
+
+Verify that PromptDict.prompts[NFCDestination.breadboardID] exists and has at least 3 steps.
+
+Confirm ShapesDict.shapes returns a non-empty string for each lesson.
+
+Validate LessonManager produces the correct quizQuestions array for each NFCDestination.
+
+UI Tests (BIT Teaching AppUITests)
+
+Simulate scanning (Xcode’s “Simulate NFC Tag” menu action) to ensure the app opens the correct view.
+
+Navigate through SettingsView, toggle “Read Content Aloud,” and assert UserDefaults changes.
+
+Launch a lesson, tap “Take the Quiz,” answer questions, and confirm success/failure flows.
+
+To run all tests:
+
+In Xcode’s Product menu, choose Test (⌘U).
+
+Verify that both Unit Tests and UI Tests pass.
+
+Troubleshooting
+“NFC Not Supported” or “Cannot Detect Tag”
+
+Make sure you’re running on a real device with NFC (iPhone 7 or later).
+
+Under your project target’s Signing & Capabilities, ensure the “Near Field Communication Tag Reading” capability is present.
+
+If building to a physical device for the first time, unplug and replug your iPhone so Xcode can reindex capabilities.
+
+VoiceOver Reads Incorrect Order
+
+Check that each Text view is placed in the correct SwiftUI stack.
+
+Verify you’re not accidentally calling accessibilitySortPriority(_) out of sequence.
+
+Audio Overlaps / Double Reading
+
+If VoiceOver is on, do not trigger AVSpeechSynthesizer. The AccessibilityManager should detect .isVoiceOverRunning and skip its TTS.
+
+If audio overlaps, pause any active AVSpeechSynthesizer sessions before starting a new prompt.
+
+Lesson Content Not Updating
+
+Clean Derived Data (Xcode → Preferences → Locations → Derived Data → Delete) and rebuild.
+
+Confirm that you updated the correct NFCDestination enum case and matching key in PromptDict.
+
+Contributing
+Thank you for your interest in improving the BIT Teaching App! To contribute:
+
+Fork this repository.
+
+Create a new branch for your feature or bugfix:
+
+bash
+Copy
+Edit
+git checkout -b feature/add-new-lesson
+Make your changes, ensuring new code follows the existing Swift/SwiftUI style:
+
+Use camelCase for variable names.
+
+Add doc comments (///) for any new public methods.
+
+Keep functions shorter than 50 lines if possible.
+
+Add unit tests for any new business logic.
+
+Run ⌘U in Xcode to ensure all tests (and UI tests) pass.
+
+Commit your changes, push to your fork, and open a Pull Request.
+
+In your PR description, reference any relevant issue and explain your changes in detail.
+
+
 
 ### 1. Clone the Repository
 
