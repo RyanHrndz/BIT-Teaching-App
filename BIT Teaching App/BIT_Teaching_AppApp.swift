@@ -9,9 +9,16 @@ import SwiftUI
 
 @main
 struct BIT_Teaching_AppApp: App {
+    @StateObject private var accessibilityManager = AccessibilityManager.shared
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            HomeView()
+                .environmentObject(accessibilityManager)
         }
     }
 }
+
+
+
+
